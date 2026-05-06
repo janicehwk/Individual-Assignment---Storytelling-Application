@@ -28,7 +28,6 @@ def img2text(url):
 
 def text2story(scenario):
     """Generate a kid-friendly story (50-100 words) from a caption.[cite: 1]"""
-    # Scrub technical terms often produced by image captioning models
     technical_words = ["illustration", "vector", "drawing", "image", "picture", "graphic"]
     clean_scenario = scenario
     for word in technical_words:
@@ -68,7 +67,7 @@ def text2story(scenario):
     return raw_story
 
 def text2audio(story_text):
-    """Convert story text into natural audio using Hugging Face TTS.[cite: 1]"""
+    """Convert story text into audio using Hugging Face TTS.[cite: 1]"""
     tts_pipe = pipeline("text-to-speech", model="facebook/mms-tts-eng")
     speech = tts_pipe(story_text.lower())
     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
@@ -79,7 +78,6 @@ def text2audio(story_text):
 def main():
     st.set_page_config(page_title="Magic Story Machine", page_icon="🪄", layout="centered")
 
-    # ── CUSTOM CSS ──────────────────────────────────────────────────────────
     st.markdown("""
     <style>
         .stApp { background: linear-gradient(135deg, #FFDEE9 0%, #B5FFFC 100%); }
@@ -90,21 +88,13 @@ def main():
     </style>
     """, unsafe_allow_html=True)
 
-    # ── CRITICAL RESET LOGIC AT THE TOP ─────────────────────────────────────
+    # Initialize uploader key
     if 'uploader_key' not in st.session_state:
         st.session_state.uploader_key = 0
-
-    # This button appears ONLY if a story has been finished to keep the UI clean
-    if st.session_state.get('story_finished', False):
-        if st.sidebar.button("🔄 Start New Story (Reset)"):
-            # Clear everything to mimic a first-time visit[cite: 1]
-            st.session_state.clear()
-            st.rerun()
 
     st.title("🪄 Magic Story Machine 🪄")
     st.subheader("Upload a picture and watch it turn into a story! 📖✨")
 
-    # ── Step 1: Image Upload[cite: 1] ──────────────────────────────────────
     st.markdown('<p class="step-label">📸 Step 1: Pick a Picture!</p>', unsafe_allow_html=True)
     uploaded_file = st.file_uploader(
         "Choose a fun image...", 
@@ -113,6 +103,7 @@ def main():
         key=f"uploader_{st.session_state.uploader_key}"
     )
 
+    # The pipeline only runs if a file is present and we aren't in a reset state
     if uploaded_file is not None:
         # Step 2: Caption[cite: 1]
         st.image(uploaded_file, caption="🖼️ Your awesome picture!", use_container_width=True)
@@ -125,7 +116,7 @@ def main():
         st.markdown('<p class="step-label">📝 Step 3: Story time!</p>', unsafe_allow_html=True)
         with st.spinner("✍️ Writing a magical story..."):
             story = text2story(scenario)
-        st.markdown(f'<div class="story-box">{story}</div>', unsafe_allow_html=True)
+        st.write(f"**Story:** {story}")
 
         # Step 4: Audio[cite: 1]
         st.markdown('<p class="step-label">🔊 Step 4: Listen to your story!</p>', unsafe_allow_html=True)
@@ -135,8 +126,14 @@ def main():
             st.audio(f.read(), format="audio/wav")
 
         st.balloons()
-        st.success("🎉 Your story is ready! Use the sidebar to start a new one.")
-        st.session_state.story_finished = True
+        st.success("🎉 Your story is ready!")
+
+        # Reset button at the bottom of the page[cite: 1]
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("🔄 Create Another Story!"):
+            # Wipe all session data to force a fresh landing page state[cite: 1]
+            st.session_state.clear()
+            st.rerun()
 
     st.markdown('<p class="fun-footer">Made with ❤️ for little storytellers everywhere 🌈</p>', unsafe_allow_html=True)
 
