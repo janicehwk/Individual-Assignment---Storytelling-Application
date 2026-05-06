@@ -146,7 +146,7 @@ def main():
         layout="centered"
     )
 
-    # ── Custom CSS for Kid-Friendly UI[cite: 1] ─────────────────────────
+    # ── Custom CSS for Kid-Friendly UI ──────────────────────────────────
     st.markdown("""
     <style>
         .stApp { background: linear-gradient(135deg, #FFDEE9 0%, #B5FFFC 100%); }
@@ -157,15 +157,17 @@ def main():
     </style>
     """, unsafe_allow_html=True)
 
+    # ── Initialize Session States for Reset Functionality ───────────────
     if 'uploader_key' not in st.session_state:
         st.session_state.uploader_key = 0
     if 'story_finished' not in st.session_state:
         st.session_state.story_finished = False
 
+    # ── App Header ──────────────────────────────────────────────────────
     st.title("🪄 Magic Story Machine 🪄")
     st.subheader("Upload a picture and watch it turn into a story! 📖✨")
 
-    # ── Step 1: Image Upload[cite: 1] ──────────────────────────────────
+    # ── Step 1: Image Upload ────────────────────────────────────────────
     st.markdown('<p class="step-label">📸 Step 1: Pick a Picture!</p>', unsafe_allow_html=True)
 
     uploaded_file = st.file_uploader(
@@ -175,56 +177,71 @@ def main():
         key=f"uploader_{st.session_state.uploader_key}"
     )
 
+    # Create a placeholder to clear the screen on reset
+    app_container = st.container()
+
     if uploaded_file is not None:
-        bytes_data = uploaded_file.getvalue()
-        file_path = uploaded_file.name
-        with open(file_path, "wb") as f:
-            f.write(bytes_data)
+        with app_container:
+            # Save uploaded file locally for the model to read
+            bytes_data = uploaded_file.getvalue()
+            file_path = uploaded_file.name
+            with open(file_path, "wb") as f:
+                f.write(bytes_data)
 
-        st.image(uploaded_file, caption="🖼️ Your awesome picture!", use_container_width=True)
+            st.image(uploaded_file, caption="🖼️ Your awesome picture!", use_container_width=True)
 
-        # ── Step 2: Image → Caption[cite: 1] ────────────────────────────
-        st.markdown('<p class="step-label">🔍 Step 2: What\'s in your picture?</p>', unsafe_allow_html=True)
-        with st.spinner("🧐 Looking at your picture really carefully..."):
-            scenario = img2text(file_path)
-        st.markdown(f'<div class="caption-box">I see: <strong>{scenario}</strong></div>', unsafe_allow_html=True)
+            # ── Step 2: Image → Caption ─────────────────────────────────────
+            st.markdown('<p class="step-label">🔍 Step 2: What\'s in your picture?</p>', unsafe_allow_html=True)
+            with st.spinner("🧐 Looking at your picture really carefully..."):
+                scenario = img2text(file_path)
+            st.markdown(f'<div class="caption-box">I see: <strong>{scenario}</strong></div>', unsafe_allow_html=True)
 
-        # ── Step 3: Caption → Story[cite: 1] ────────────────────────────
-        st.markdown('<p class="step-label">📝 Step 3: Story time!</p>', unsafe_allow_html=True)
-        st.text('Generating a story...')
+            # ── Step 3: Caption → Story ─────────────────────────────────────
+            st.markdown('<p class="step-label">📝 Step 3: Story time!</p>', unsafe_allow_html=True)
+            st.text('Generating a story...')
 
-        with st.spinner("✍️ Writing a magical story just for you..."):
-            story = text2story(scenario)
+            with st.spinner("✍️ Writing a magical story just for you..."):
+                story = text2story(scenario)
 
-        st.write(f"**Story:** {story}")
+            st.write(f"**Story:** {story}")
 
-        # ── Step 4: Story → Audio[cite: 1] ──────────────────────────────
-        st.markdown('<p class="step-label">🔊 Step 4: Listen to your story!</p>', unsafe_allow_html=True)
-        with st.spinner("🎵 Getting the story ready to read aloud..."):
-            audio_file_path = text2audio(story)
+            # ── Step 4: Story → Audio ───────────────────────────────────────
+            st.markdown('<p class="step-label">🔊 Step 4: Listen to your story!</p>', unsafe_allow_html=True)
+            with st.spinner("🎵 Getting the story ready to read aloud..."):
+                audio_file_path = text2audio(story)
 
-        with open(audio_file_path, "rb") as audio_file:
-            audio_bytes = audio_file.read()
-        st.audio(audio_bytes, format="audio/wav")
+            with open(audio_file_path, "rb") as audio_file:
+                audio_bytes = audio_file.read()
+            st.audio(audio_bytes, format="audio/wav")
 
-        st.balloons()
-        st.success("🎉 Your story is ready! Press play to listen! 🎧")
-        st.session_state.story_finished = True
+            st.balloons()
+            st.success("🎉 Your story is ready! Press play to listen! 🎧")
+            st.session_state.story_finished = True
 
-        # ── Create Another Story Flow ───────────────────────────────────
-        if st.session_state.story_finished:
-            st.markdown("<br>", unsafe_allow_html=True)
-            if st.button("🔄 Create Another Story!"):
-                widget_key = f"uploader_{st.session_state.uploader_key}"
-                if widget_key in st.session_state:
-                    del st.session_state[widget_key]
+            # ── Create Another Story Flow (Revised Reset Logic) ─────────────
+            if st.session_state.story_finished:
+                st.markdown("<br>", unsafe_allow_html=True)
+                if st.button("🔄 Create Another Story!"):
+                    # 1. Clear the specific widget from session state
+                    widget_key = f"uploader_{st.session_state.uploader_key}"
+                    if widget_key in st.session_state:
+                        del st.session_state[widget_key]
 
-                st.session_state.uploader_key += 1
-                st.session_state.story_finished = False
-                st.rerun()
+                    # 2. Increment key to force a fresh file uploader
+                    st.session_state.uploader_key += 1
+                    
+                    # 3. Reset the finished flag
+                    st.session_state.story_finished = False
+                    
+                    # 4. Clear the UI container immediately
+                    app_container.empty()
+                    
+                    # 5. Rerun the script from the top
+                    st.rerun()
 
     st.markdown('<p class="fun-footer">Made with ❤️ for little storytellers everywhere 🌈</p>', unsafe_allow_html=True)
 
 
+# ── Run the App ─────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     main()
