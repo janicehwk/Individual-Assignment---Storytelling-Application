@@ -3,5 +3,3 @@ transformers<5.0.0
 torch
 Pillow
 scipy
-accelerate
-bitsandbytes
