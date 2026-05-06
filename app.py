@@ -3,9 +3,9 @@
 # Description:   A kid-friendly Streamlit application that turns uploaded
 #                images into fun audio stories for children aged 3-10.
 # Pipeline:
-#   1. Image Captioning — Salesforce/blip-image-captioning-base[cite: 1]
+#   1. Image Captioning — Salesforce/blip-image-captioning-base
 #   2. Story Generation — roneneldan/TinyStories-33M
-#   3. Text-to-Speech   — facebook/mms-tts-eng (Hugging Face TTS)[cite: 1]
+#   3. Text-to-Speech   — facebook/mms-tts-eng (Hugging Face TTS)
 # ============================================================================
 
 import streamlit as st
@@ -17,33 +17,22 @@ import scipy.io.wavfile
 # ── Function Part ───────────────────────────────────────────────────────────
 
 def img2text(url):
-    """
-    Generate a text caption from an uploaded image.[cite: 1]
-    Uses the BLIP image captioning model.[cite: 1]
-    """
+    """Generate a text caption from an uploaded image."""
     processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
     cap_model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
-
     image = Image.open(url).convert("RGB")
     inputs = processor(image, return_tensors="pt")
-
     output = cap_model.generate(**inputs, max_new_tokens=50)
     caption = processor.decode(output[0], skip_special_tokens=True)
     return caption
 
-
 def text2story(scenario):
-    """
-    Generate a kid-friendly story (50-100 words) from an image caption.[cite: 1]
-    Uses TinyStories-33M for Streamlit Cloud compatibility.
-    """
-    # Scrub technical terms often produced by image captioning models[cite: 1]
+    """Generate a kid-friendly story (50-100 words) from a caption."""
     technical_words = ["illustration", "vector", "drawing", "image", "picture", "graphic"]
     clean_scenario = scenario
     for word in technical_words:
         clean_scenario = clean_scenario.replace(word, "").strip()
 
-    # Build a story-focused prompt using the cleaned scenario[cite: 1]
     prompt = (
         f"Once upon a time, there were {clean_scenario}. "
         f"It was a beautiful sunny day. "
@@ -51,100 +40,50 @@ def text2story(scenario):
         f"The adventure was about to begin. "
     )
 
-    story_pipe = pipeline(
-        "text-generation",
-        model="roneneldan/TinyStories-33M"
-    )
-
+    story_pipe = pipeline("text-generation", model="roneneldan/TinyStories-33M")
     raw_story = ""
 
-    # Try up to 5 times to guarantee at least 50 words[cite: 1]
     for attempt in range(5):
         story_results = story_pipe(
             prompt,
             max_new_tokens=200,
-            num_return_sequences=1,
             do_sample=True,
             temperature=0.85 + (attempt * 0.1),
             repetition_penalty=1.2
         )
-
         raw_story = story_results[0]["generated_text"]
-
-        word_count = len(raw_story.split())
-        if word_count >= 50:
+        if len(raw_story.split()) >= 50:
             break
 
-    # Ensure minimum length requirement is met[cite: 1]
     if len(raw_story.split()) < 50:
-        raw_story += (
-            " They laughed and played together all day long. "
-            "When the sun began to set, they knew it was time to go home. "
-            "But they promised to meet again tomorrow for another adventure. "
-            "And they all lived happily ever after. The end."
-        )
+        raw_story += " They all lived happily ever after. The end."
 
-    # Trim to stay within 100 words maximum[cite: 1]
     words = raw_story.split()
     if len(words) > 100:
         words = words[:100]
         trimmed_story = " ".join(words)
-
-        last_punctuation = max(
-            trimmed_story.rfind('.'),
-            trimmed_story.rfind('!'),
-            trimmed_story.rfind('?')
-        )
-
-        if last_punctuation != -1:
-            trimmed_story = trimmed_story[:last_punctuation + 1]
-        else:
-            trimmed_story += "..."
-
-        return trimmed_story
-
+        last_punct = max(trimmed_story.rfind('.'), trimmed_story.rfind('!'), trimmed_story.rfind('?'))
+        return trimmed_story[:last_punct + 1] if last_punct != -1 else trimmed_story + "..."
     return raw_story
 
-
 def text2audio(story_text):
-    """
-    Convert a story string into a natural audio file using
-    Facebook's MMS-TTS model from Hugging Face.[cite: 1]
-    """
+    """Convert story text into audio using Hugging Face TTS."""
     tts_pipe = pipeline("text-to-speech", model="facebook/mms-tts-eng")
-
-    # The MMS model requires text to be lowercase to read it properly[cite: 1]
-    clean_text = story_text.lower()
-
-    # Generate the audio array[cite: 1]
-    speech = tts_pipe(clean_text)
-
-    # Save to a temporary WAV file so Streamlit can play it[cite: 1]
+    speech = tts_pipe(story_text.lower())
     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
-
-    scipy.io.wavfile.write(
-        temp_file.name,
-        rate=speech["sampling_rate"],
-        data=speech["audio"][0]
-    )
-
+    scipy.io.wavfile.write(temp_file.name, rate=speech["sampling_rate"], data=speech["audio"][0])
     return temp_file.name
-
 
 # ── Main Part ───────────────────────────────────────────────────────────────
 def main():
     """
-    Main function that runs the entire Streamlit application.[cite: 1]
+    Main function that runs the entire Streamlit application.
+    Handles page configuration, kid-friendly UI styling, session state,
+    image upload, and orchestrates the three-stage pipeline:
+    image upload -> caption -> story -> audio playback.
     """
+    st.set_page_config(page_title="Magic Story Machine", page_icon="🪄", layout="centered")
 
-    # ── Page Configuration ──────────────────────────────────────────────
-    st.set_page_config(
-        page_title="Magic Story Machine",
-        page_icon="🪄",
-        layout="centered"
-    )
-
-    # ── Custom CSS for Kid-Friendly UI[cite: 1] ─────────────────────────
     st.markdown("""
     <style>
         .stApp { background: linear-gradient(135deg, #FFDEE9 0%, #B5FFFC 100%); }
@@ -155,63 +94,54 @@ def main():
     </style>
     """, unsafe_allow_html=True)
 
-    # Initialize uploader key to track widget state[cite: 1]
-    if 'uploader_key' not in st.session_state:
-        st.session_state.uploader_key = 0
-
     st.title("🪄 Magic Story Machine 🪄")
     st.subheader("Upload a picture and watch it turn into a story! 📖✨")
 
-    # ── Step 1: Image Upload[cite: 1] ──────────────────────────────────
     st.markdown('<p class="step-label">📸 Step 1: Pick a Picture!</p>', unsafe_allow_html=True)
-
     uploaded_file = st.file_uploader(
         "Choose a fun image...",
         type=["jpg", "jpeg", "png"],
         label_visibility="collapsed",
-        key=f"uploader_{st.session_state.uploader_key}"
     )
 
+    # The pipeline only runs if a file is present
     if uploaded_file is not None:
-        # Step 2: Image → Caption[cite: 1]
+        # Step 2: Caption
         st.image(uploaded_file, caption="🖼️ Your awesome picture!", use_container_width=True)
         st.markdown('<p class="step-label">🔍 Step 2: What\'s in your picture?</p>', unsafe_allow_html=True)
-        with st.spinner("🧐 Looking at your picture really carefully..."):
+        with st.spinner("🧐 Looking at your picture..."):
             scenario = img2text(uploaded_file)
         st.markdown(f'<div class="caption-box">I see: <strong>{scenario}</strong></div>', unsafe_allow_html=True)
 
-        # Step 3: Caption → Story[cite: 1]
+        # Step 3: Story
         st.markdown('<p class="step-label">📝 Step 3: Story time!</p>', unsafe_allow_html=True)
-        with st.spinner("✍️ Writing a magical story just for you..."):
+        with st.spinner("✍️ Writing a magical story..."):
             story = text2story(scenario)
-        st.markdown(f'<div class="story-box">{story}</div>', unsafe_allow_html=True)
+        st.write(f"**Story:** {story}")
 
-        # Step 4: Story → Audio[cite: 1]
+        # Step 4: Audio
         st.markdown('<p class="step-label">🔊 Step 4: Listen to your story!</p>', unsafe_allow_html=True)
-        with st.spinner("🎵 Getting the story ready to read aloud..."):
-            audio_file_path = text2audio(story)
-
-        with open(audio_file_path, "rb") as audio_file:
-            audio_bytes = audio_file.read()
-        st.audio(audio_bytes, format="audio/wav")
+        with st.spinner("🎵 Getting the story ready..."):
+            audio_path = text2audio(story)
+        with open(audio_path, "rb") as f:
+            st.audio(f.read(), format="audio/wav")
 
         st.balloons()
         st.success("🎉 Your story is ready!")
 
-        # ── Optimized Reset Logic ──
-        # This button clears memory and skips redundant model runs[cite: 1]
+        # Reset link to create another story (full page reload to clear everything)
         st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("🔄 Create Another Story!"):
-            # Wipe session state to force an immediate hard reset[cite: 1]
-            st.session_state.clear()
-            # Increment key to ensure a brand-new uploader widget on rerun[cite: 1]
-            if 'uploader_key' not in st.session_state:
-                st.session_state.uploader_key = 0
-            st.session_state.uploader_key += 1
-            st.rerun()
+        st.markdown(
+            '<a href="/" target="_self" style="'
+            'display: inline-block; padding: 12px 24px; '
+            'background: #FFEAA7; color: #2D3436; '
+            'font-size: 1.1rem; font-weight: 700; '
+            'border-radius: 20px; text-decoration: none;'
+            '">🔄 Create Another Story!</a>',
+            unsafe_allow_html=True,
+        )
 
     st.markdown('<p class="fun-footer">Made with ❤️ for little storytellers everywhere 🌈</p>', unsafe_allow_html=True)
-
 
 if __name__ == "__main__":
     main()
