@@ -1,11 +1,11 @@
 # ============================================================================
 # Program Title: Magic Story Machine - A Storytelling App for Kids
 # Description:   A kid-friendly Streamlit application that turns uploaded
-#                images into fun audio stories for children aged 3-10.
+#                images into fun audio stories for children aged 3-10.[cite: 1]
 # Pipeline:
-#   1. Image Captioning — Salesforce/blip-image-captioning-base
+#   1. Image Captioning — Salesforce/blip-image-captioning-base[cite: 1]
 #   2. Story Generation — roneneldan/TinyStories-33M
-#   3. Text-to-Speech   — facebook/mms-tts-eng (Hugging Face TTS)
+#   3. Text-to-Speech   — facebook/mms-tts-eng (Hugging Face TTS)[cite: 1]
 # ============================================================================
 
 # ── Import Part ─────────────────────────────────────────────────────────────
@@ -20,14 +20,8 @@ import scipy.io.wavfile
 
 def img2text(url):
     """
-    Generate a text caption from an uploaded image.
-    Uses the BLIP image captioning model loaded directly via
-    BlipProcessor and BlipForConditionalGeneration for compatibility.
-
-    Parameters:
-        url (str): File path of the uploaded image.
-    Returns:
-        str: A short caption describing what is in the image.
+    Generate a text caption from an uploaded image.[cite: 1]
+    Uses the BLIP image captioning model.[cite: 1]
     """
     processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
     cap_model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
@@ -42,18 +36,18 @@ def img2text(url):
 
 def text2story(scenario):
     """
-    Generate a kid-friendly story (50-100 words) from an image caption.
-    Uses roneneldan/TinyStories-33M text generation model. Includes a retry loop to
-    strictly enforce the 50-word minimum requirement.
-
-    Parameters:
-        scenario (str): A short image caption to build the story around.
-    Returns:
-        str: A fun story between 50-100 words for children aged 3-10.
+    Generate a kid-friendly story (50-100 words) from an image caption.[cite: 1]
+    Uses TinyStories-33M for Streamlit Cloud compatibility.
     """
-    # Build a longer prompt to give the model more context to continue from
+    # Scrub technical terms often produced by image captioning models
+    technical_words = ["illustration", "vector", "drawing", "image", "picture", "graphic"]
+    clean_scenario = scenario
+    for word in technical_words:
+        clean_scenario = clean_scenario.replace(word, "").strip()
+
+    # Build a story-focused prompt using the cleaned scenario
     prompt = (
-        f"Once upon a time, {scenario}. "
+        f"Once upon a time, there were {clean_scenario}. "
         f"It was a beautiful sunny day. "
         f"Everyone was happy and excited. "
         f"The adventure was about to begin. "
@@ -66,7 +60,7 @@ def text2story(scenario):
 
     raw_story = ""
 
-    # Try up to 5 times to guarantee at least 50 words
+    # Try up to 5 times to guarantee at least 50 words[cite: 1]
     for attempt in range(5):
         story_results = story_pipe(
             prompt,
@@ -83,7 +77,7 @@ def text2story(scenario):
         if word_count >= 50:
             break
 
-    # If still under 50 words after retries, pad with a closing sentence
+    # If still under 50 words after retries, pad with a closing sentence[cite: 1]
     if len(raw_story.split()) < 50:
         raw_story += (
             " They laughed and played together all day long. "
@@ -92,7 +86,7 @@ def text2story(scenario):
             "And they all lived happily ever after. The end."
         )
 
-    # Trim to stay within 100 words maximum
+    # Trim to stay within 100 words maximum[cite: 1]
     words = raw_story.split()
     if len(words) > 100:
         words = words[:100]
@@ -117,12 +111,7 @@ def text2story(scenario):
 def text2audio(story_text):
     """
     Convert a story string into a natural audio file using
-    Facebook's MMS-TTS model from Hugging Face.
-
-    Parameters:
-        story_text (str): The story text to convert to speech.
-    Returns:
-        str: File path of the generated audio (.wav) file.
+    Facebook's MMS-TTS model from Hugging Face.[cite: 1]
     """
     tts_pipe = pipeline("text-to-speech", model="facebook/mms-tts-eng")
 
@@ -132,7 +121,7 @@ def text2audio(story_text):
     # Generate the audio array
     speech = tts_pipe(clean_text)
 
-    # Save to a temporary WAV file so Streamlit can play it
+    # Save to a temporary WAV file so Streamlit can play it[cite: 1]
     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
 
     scipy.io.wavfile.write(
@@ -147,10 +136,7 @@ def text2audio(story_text):
 # ── Main Part ───────────────────────────────────────────────────────────────
 def main():
     """
-    Main function that runs the entire Streamlit application.
-    Handles page configuration, kid-friendly UI styling, session state,
-    image upload, and orchestrates the three-stage pipeline:
-    image → caption → story → audio playback.
+    Main function that runs the entire Streamlit application.[cite: 1]
     """
 
     # ── Page Configuration ──────────────────────────────────────────────
@@ -160,7 +146,7 @@ def main():
         layout="centered"
     )
 
-    # ── Custom CSS for Kid-Friendly UI ──────────────────────────────────
+    # ── Custom CSS for Kid-Friendly UI[cite: 1] ─────────────────────────
     st.markdown("""
     <style>
         .stApp { background: linear-gradient(135deg, #FFDEE9 0%, #B5FFFC 100%); }
@@ -171,17 +157,15 @@ def main():
     </style>
     """, unsafe_allow_html=True)
 
-    # ── Initialize Session States for Reset Functionality ───────────────
     if 'uploader_key' not in st.session_state:
         st.session_state.uploader_key = 0
     if 'story_finished' not in st.session_state:
         st.session_state.story_finished = False
 
-    # ── App Header ──────────────────────────────────────────────────────
     st.title("🪄 Magic Story Machine 🪄")
     st.subheader("Upload a picture and watch it turn into a story! 📖✨")
 
-    # ── Step 1: Image Upload ────────────────────────────────────────────
+    # ── Step 1: Image Upload[cite: 1] ──────────────────────────────────
     st.markdown('<p class="step-label">📸 Step 1: Pick a Picture!</p>', unsafe_allow_html=True)
 
     uploaded_file = st.file_uploader(
@@ -192,7 +176,6 @@ def main():
     )
 
     if uploaded_file is not None:
-        # Save uploaded file locally for the model to read
         bytes_data = uploaded_file.getvalue()
         file_path = uploaded_file.name
         with open(file_path, "wb") as f:
@@ -200,13 +183,13 @@ def main():
 
         st.image(uploaded_file, caption="🖼️ Your awesome picture!", use_container_width=True)
 
-        # ── Step 2: Image → Caption ─────────────────────────────────────
+        # ── Step 2: Image → Caption[cite: 1] ────────────────────────────
         st.markdown('<p class="step-label">🔍 Step 2: What\'s in your picture?</p>', unsafe_allow_html=True)
         with st.spinner("🧐 Looking at your picture really carefully..."):
             scenario = img2text(file_path)
         st.markdown(f'<div class="caption-box">I see: <strong>{scenario}</strong></div>', unsafe_allow_html=True)
 
-        # ── Step 3: Caption → Story ─────────────────────────────────────
+        # ── Step 3: Caption → Story[cite: 1] ────────────────────────────
         st.markdown('<p class="step-label">📝 Step 3: Story time!</p>', unsafe_allow_html=True)
         st.text('Generating a story...')
 
@@ -215,12 +198,11 @@ def main():
 
         st.write(f"**Story:** {story}")
 
-        # ── Step 4: Story → Audio ───────────────────────────────────────
+        # ── Step 4: Story → Audio[cite: 1] ──────────────────────────────
         st.markdown('<p class="step-label">🔊 Step 4: Listen to your story!</p>', unsafe_allow_html=True)
         with st.spinner("🎵 Getting the story ready to read aloud..."):
             audio_file_path = text2audio(story)
 
-        # Play the WAV file generated by the Facebook MMS model
         with open(audio_file_path, "rb") as audio_file:
             audio_bytes = audio_file.read()
         st.audio(audio_bytes, format="audio/wav")
@@ -244,6 +226,5 @@ def main():
     st.markdown('<p class="fun-footer">Made with ❤️ for little storytellers everywhere 🌈</p>', unsafe_allow_html=True)
 
 
-# ── Run the App ─────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     main()
