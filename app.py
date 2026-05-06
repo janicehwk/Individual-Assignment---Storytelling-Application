@@ -97,6 +97,12 @@ def main():
     # Initialize uploader key for reset functionality
     if 'uploader_key' not in st.session_state:
         st.session_state.uploader_key = 0
+    if 'resetting' not in st.session_state:
+        st.session_state.resetting = False
+
+    # If we are in a reset state, clear the flag and skip the pipeline
+    if st.session_state.resetting:
+        st.session_state.resetting = False
 
     st.title("🪄 Magic Story Machine 🪄")
     st.subheader("Upload a picture and watch it turn into a story! 📖✨")
@@ -109,8 +115,8 @@ def main():
         key=f"uploader_{st.session_state.uploader_key}"
     )
 
-    # The pipeline only runs if a file is present
-    if uploaded_file is not None:
+    # The pipeline only runs if a file is present and we are not resetting
+    if uploaded_file is not None and not st.session_state.resetting:
         # Step 2: Caption
         st.image(uploaded_file, caption="🖼️ Your awesome picture!", use_container_width=True)
         st.markdown('<p class="step-label">🔍 Step 2: What\'s in your picture?</p>', unsafe_allow_html=True)
@@ -137,6 +143,7 @@ def main():
         # Reset button to create another story
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("🔄 Create Another Story!"):
+            st.session_state.resetting = True
             st.session_state.uploader_key += 1
             st.rerun()
 
