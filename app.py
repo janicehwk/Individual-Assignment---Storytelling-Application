@@ -97,13 +97,21 @@ def main():
     # Initialize uploader key for reset functionality
     if 'uploader_key' not in st.session_state:
         st.session_state.uploader_key = 0
-    if 'resetting' not in st.session_state:
-        st.session_state.resetting = False
 
-    # If we are in a reset state, save it and clear the flag
-    is_resetting = st.session_state.resetting
-    if is_resetting:
+    # If resetting, just show the header and uploader, then stop
+    if st.session_state.get('resetting', False):
         st.session_state.resetting = False
+        st.title("🪄 Magic Story Machine 🪄")
+        st.subheader("Upload a picture and watch it turn into a story! 📖✨")
+        st.markdown('<p class="step-label">📸 Step 1: Pick a Picture!</p>', unsafe_allow_html=True)
+        st.file_uploader(
+            "Choose a fun image...",
+            type=["jpg", "jpeg", "png"],
+            label_visibility="collapsed",
+            key=f"uploader_{st.session_state.uploader_key}"
+        )
+        st.markdown('<p class="fun-footer">Made with ❤️ for little storytellers everywhere 🌈</p>', unsafe_allow_html=True)
+        st.stop()
 
     st.title("🪄 Magic Story Machine 🪄")
     st.subheader("Upload a picture and watch it turn into a story! 📖✨")
@@ -116,8 +124,8 @@ def main():
         key=f"uploader_{st.session_state.uploader_key}"
     )
 
-    # The pipeline only runs if a file is present and we are not resetting
-    if uploaded_file is not None and not is_resetting:
+    # The pipeline only runs if a file is present
+    if uploaded_file is not None:
         # Step 2: Caption
         st.image(uploaded_file, caption="🖼️ Your awesome picture!", use_container_width=True)
         st.markdown('<p class="step-label">🔍 Step 2: What\'s in your picture?</p>', unsafe_allow_html=True)
