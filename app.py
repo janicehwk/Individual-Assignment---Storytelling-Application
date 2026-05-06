@@ -36,8 +36,6 @@ def text2story(scenario):
     prompt = (
         f"Once upon a time, there were {clean_scenario}. "
         f"It was a beautiful sunny day. "
-        f"Everyone was happy and excited. "
-        f"The adventure was about to begin. "
     )
 
     story_pipe = pipeline("text-generation", model="roneneldan/TinyStories-33M")
